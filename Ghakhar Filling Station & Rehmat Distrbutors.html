@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ghakhar Filling Station — Fuel Ledger</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--green:#087443;--green2:#0b9458;--red:#d71920;--bg:#f1f7f3;--card:#fff;--text:#172033;--muted:#667085;--border:#d8e5dd}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+header{color:#fff;background:linear-gradient(135deg,var(--green),var(--green2) 65%,var(--red));padding:22px;border-bottom:5px solid var(--red)}
+.container{max-width:1450px;margin:auto;padding:18px}h1{margin:0;font-size:25px}header p{margin:6px 0;opacity:.9}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.tab,button{border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer}
+.tab{background:#fff;border:1px solid var(--border)}.tab.active,.btn-primary{background:var(--green);color:#fff}.btn-red{background:var(--red);color:#fff}.btn-green{background:#e6f5ed;color:#087443}.btn-secondary{background:#edf2f6;color:#344054}.btn-danger{background:#fee4e2;color:#b42318}
+.page{display:none}.page.active{display:block}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.card,.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 7px 20px #17332212}.card{padding:16px;border-top:4px solid var(--green)}.label,.small{color:var(--muted);font-size:12px}.value{font-size:21px;font-weight:800;margin-top:6px}
+.panel{padding:16px;margin-bottom:16px}.panel h2{margin:0 0 14px;font-size:18px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.field label{display:block;font-size:12px;font-weight:800;color:#475467;margin-bottom:5px}
+input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}input:focus,select:focus{outline:2px solid #08744333}
+.actions,.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:12px}.toolbar .field{min-width:150px;flex:1}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:9px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:9px;border-bottom:1px solid #e8edf3;text-align:left;white-space:nowrap}th{background:#f5f8f6;font-size:12px}.num{text-align:right}.badge{padding:4px 7px;border-radius:999px;font-size:10px;font-weight:800}.fuel{background:#e6f5ed;color:#087443}.payment{background:#fee4e2;color:#b42318}.note{background:#f8fafc;border:1px dashed #cbd5e1;padding:10px;border-radius:8px;margin-top:10px;font-size:12px;color:#475467}.empty{text-align:center;padding:25px;color:var(--muted)}
+.pagination{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px;color:var(--muted)}
+.pagination div button{padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-weight:bold}
+.pagination div button:disabled{opacity:0.5;cursor:not-allowed}
+@media(max-width:900px){.cards,.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.cards,.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="container">
+<h1 id="headTitle">Ghakhar Filling Station — Fuel Ledger</h1>
+<p>Fuel purchases, payments, vehicle-wise records and reports | <span id="lastUpdateHeader">Last Updated: Never</span></p>
+</div></header>
+<div class="container">
+<div class="tabs">
+<button class="tab active" data-p="dashboard">Dashboard</button><button class="tab" data-p="entries">Add / Update</button>
+<button class="tab" data-p="station">Station Ledger</button><button class="tab" data-p="vehicles">Vehicle Wise</button>
+<button class="tab" data-p="manage">Manage Vehicles</button><button class="tab" data-p="settings">Settings & Backup</button>
+</div>
+
+<section id="dashboard" class="page active">
+<div class="cards">
+<div class="card"><div class="label">Station Balance</div><div id="kBalance" class="value">0</div></div>
+<div class="card"><div class="label">Total Fuel Amount</div><div id="kFuel" class="value">0</div></div>
+<div class="card"><div class="label">Petrol (Qty / Amt)</div><div id="kPetrol" class="value" style="font-size:16px;">0 L / 0</div></div>
+<div class="card"><div class="label">Diesel (Qty / Amt)</div><div id="kDiesel" class="value" style="font-size:16px;">0 L / 0</div></div>
+</div>
+<div class="cards" style="grid-template-columns:repeat(2,1fr);">
+<div class="card"><div class="label">Total Payments</div><div id="kPay" class="value">0</div></div>
+<div class="card"><div class="label">System Last Updated</div><div id="kLastUpdate" class="value" style="font-size:15px;color:var(--muted);">Never</div></div>
+</div>
+<div class="panel"><h2>Recent Transactions</h2><div id="recent"></div></div>
+</section>
+
+<section id="entries" class="page"><div class="panel"><h2 id="formTitle">Add Transaction</h2>
+<div class="grid">
+<div class="field"><label>Invoice No</label><input id="invoice" readonly></div>
+<div class="field"><label>Type</label><select id="type"><option value="fuel">Fuel Purchase</option><option value="payment">Payment to Station</option></select></div>
+<div class="field"><label>Date</label><input id="date" type="date"></div>
+<div class="field fuelF"><label>Fuel Type</label><select id="fuelType"><option value="Petrol">Petrol</option><option value="Diesel">Diesel</option></select></div>
+<div class="field fuelF"><label>Coupon No</label><input id="coupon"></div>
+<div class="field fuelF"><label>Vehicle No</label><select id="vehicle"></select></div>
+<div class="field fuelF"><label>Fuel Amount</label><input id="fuelAmount" type="number" step=".01"></div>
+<div class="field fuelF"><label>Fuel Qty (Litre)</label><input id="fuelQty" type="number" step=".01"></div>
+<div class="field payF" style="display:none"><label>Payment Amount</label><input id="paymentAmount" type="number" step=".01"></div>
+<div class="field"><label>Remarks</label><input id="remarks"></div>
+</div><div class="note">Invoice No خودکار bny ga. Settings & Backup se invoice manage kr skte hain.</div>
+<div class="actions"><button class="btn-primary" id="save">Save Transaction</button><button class="btn-secondary" id="clear">Clear</button></div>
+</div></section>
+
+<section id="station" class="page"><div class="panel"><h2>Ghakhar Filling Station Ledger</h2>
+<div class="toolbar">
+<div class="field"><label>Search</label><input id="sSearch"></div>
+<div class="field"><label>From Date</label><input id="sFrom" type="date"></div>
+<div class="field"><label>End Date</label><input id="sTo" type="date"></div>
+<div class="field"><label>Type</label><select id="sType"><option value="">All</option><option value="fuel">Fuel</option><option value="payment">Payment</option></select></div>
+<div class="field"><label>Entries Per Page</label><select id="sPerPage"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="500">All</option></select></div>
+</div>
+<div class="actions" style="margin-top:14px;"><button class="btn-primary" id="printStation">Print Report</button><button class="btn-green" id="excelStation">Download Excel</button></div>
+<div id="stationSummaryBox" class="note" style="background:#e6f5ed;margin-top:12px;font-weight:bold;color:var(--green);"></div>
+<div id="stationTable" style="margin-top:12px;"></div>
+<div id="stationPagination" class="pagination"></div>
+</div></section>
+
+<section id="vehicles" class="page"><div class="panel"><h2>Vehicle Wise Report</h2>
+<div class="toolbar"><div class="field"><label>Vehicle</label><select id="vFilter"></select></div><div class="field"><label>Search Vehicle</label><input id="vSearch"></div><div class="field"><label>From Date</label><input id="vFrom" type="date"></div><div class="field"><label>End Date</label><input id="vTo" type="date"></div></div>
+<div class="actions"><button class="btn-primary" id="printVehicle">Print Vehicle Report</button><button class="btn-green" id="excelVehicle">Download Excel</button></div>
+<div id="vehicleSummary"></div><hr><h2>Vehicle Detail</h2><div id="vehicleDetail"></div></div></section>
+
+<section id="manage" class="page"><div class="panel"><h2>Add / Update Vehicle</h2>
+<div class="grid"><div class="field"><label>Vehicle No *</label><input id="mvNo"></div><div class="field"><label>Driver / Person</label><input id="mvDriver"></div><div class="field"><label>Vehicle Type</label><select id="mvType"><option>Vehicle</option><option>Fork Lifter</option><option>Other</option></select></div><div class="field"><label>Remarks</label><input id="mvRemarks"></div></div>
+<div class="actions"><button class="btn-primary" id="mvSave">Add Vehicle</button><button class="btn-secondary" id="mvClear">Clear</button></div><input id="mvId" type="hidden"></div>
+<div class="panel"><h2>Vehicle List</h2><div id="vehicleList"></div></div></section>
+
+<section id="settings" class="page">
+<div class="panel"><h2>Manage Transaction by Invoice No</h2><div class="grid"><div class="field"><label>Invoice No</label><input id="findInvoice" placeholder="INV-00001"></div></div>
+<div class="actions"><button class="btn-primary" id="findBtn">Find Invoice</button></div><div id="findResult" class="note">Invoice number enter krke Find krein.</div></div>
+<div class="panel"><h2>Settings</h2><div class="grid"><div class="field"><label>Opening Balance</label><input id="opening" type="number" step=".01"></div><div class="field"><label>Station Name</label><input id="stationName"></div></div><div class="actions"><button class="btn-primary" id="saveSettings">Save Settings</button></div></div>
+<div class="panel"><h2>Backup / Restore / Excel Template & Import</h2><div class="actions">
+<button class="btn-green" id="downloadTemplate">Download Excel Template</button>
+<button class="btn-green" id="backup">Export JSON Backup</button><button class="btn-secondary" id="restoreBtn">Import JSON Backup</button><button class="btn-secondary" id="csv">Export CSV</button><button class="btn-red" id="excelBtn">Import Excel</button>
+<input id="restore" type="file" accept=".json" hidden><input id="excel" type="file" accept=".xlsx,.xls,.csv" hidden></div>
+<div class="note">Excel columns supported: Invoice No, Date, Type (fuel/payment), Fuel Type (Petrol/Diesel), Coupon No, Vehicle No, Fuel Amount, Fuel Qty Ltr, Payment Amount, Remarks.</div></div>
+</section>
+</div>
+
+<script>
+const KEY="ghakhar_fuel_ledger_v3";
+const seed={settings:{opening:0,station:"Ghakhar Filling Station",lastUpdate:""},vehicles:[],transactions:[]};
+let db=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
+db.vehicles=db.vehicles||[];db.transactions=db.transactions||[];db.settings=db.settings||{opening:0,station:"Ghakhar Filling Station",lastUpdate:""};
+let currentStationPage=1;
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function money(n){return Number(n||0).toLocaleString("en-PK",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function df(s){if(!s)return"";let a=s.split("-");return a[2]+"/"+a[1]+"/"+a[0]}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function updateTimestamp(){db.settings.lastUpdate=new Date().toLocaleString();}
+function ensureInv(){let m=0;db.transactions.forEach(t=>{let x=String(t.invoiceNo||"").match(/\d+$/);if(x)m=Math.max(m,+x[0])});db.transactions.forEach(t=>{if(!t.invoiceNo){m++;t.invoiceNo="INV-"+String(m).padStart(5,"0")}})}
+function saveDB(){ensureInv();updateTimestamp();localStorage.setItem(KEY,JSON.stringify(db))}
+function nextInv(){ensureInv();let m=0;db.transactions.forEach(t=>{let x=String(t.invoiceNo).match(/\d+$/);if(x)m=Math.max(m,+x[0])});return"INV-"+String(m+1).padStart(5,"0")}
+
+function rows(){
+let b=+db.settings.opening||0;
+return [...db.transactions].sort((a,b)=>a.date.localeCompare(b.date)||a.invoiceNo.localeCompare(b.invoiceNo)).map(t=>{
+let amt=t.type==="fuel"?+t.fuelAmount||0:-(+t.paymentAmount||0);
+let prevB=b;
+b+=amt;
+return {...t, prevBalance: prevB, balance:b}
+})}
+
+function render(){
+ensureInv();
+let stName=db.settings.station||"Ghakhar Filling Station";
+headTitle.textContent=stName+" — Fuel Ledger";
+opening.value=db.settings.opening;stationName.value=stName;
+let lu=db.settings.lastUpdate||"Never";
+document.getElementById("lastUpdateHeader").textContent="Last Updated: "+lu;
+document.getElementById("kLastUpdate").textContent=lu;
+
+let r=rows(),fuel=r.filter(x=>x.type==="fuel");
+kBalance.textContent=money(r.at(-1)?.balance??db.settings.opening);
+kFuel.textContent=money(fuel.reduce((a,x)=>a+(+x.fuelAmount||0),0));
+
+let petrolItems=fuel.filter(x=>(x.fuelType||"Petrol").toLowerCase()==="petrol");
+let dieselItems=fuel.filter(x=>(x.fuelType||"").toLowerCase()==="diesel");
+kPetrol.textContent=`${money(petrolItems.reduce((a,x)=>a+(+x.fuelQty||0),0))} L / ${money(petrolItems.reduce((a,x)=>a+(+x.fuelAmount||0),0))}`;
+kDiesel.textContent=`${money(dieselItems.reduce((a,x)=>a+(+x.fuelQty||0),0))} L / ${money(dieselItems.reduce((a,x)=>a+(+x.paymentAmount||0),0)*0 + dieselItems.reduce((a,x)=>a+(+x.fuelAmount||0),0))}`;
+kPay.textContent=money(r.filter(x=>x.type==="payment").reduce((a,x)=>a+(+x.paymentAmount||0),0));
+
+fillVehicles();renderStation();renderVehicles();renderVehicleList();renderRecent();localStorage.setItem(KEY,JSON.stringify(db))
+}
+
+function fillVehicles(){let vs=[...new Set([...db.vehicles.map(x=>x.vehicle),...db.transactions.map(x=>x.vehicle).filter(Boolean)])].sort(),cur=vehicle.value,vcur=vFilter.value;vehicle.innerHTML='<option value="">Select Vehicle</option>'+vs.map(x=>`<option>${esc(x)}</option>`).join("");vFilter.innerHTML='<option value="">Select Vehicle</option>'+vs.map(x=>`<option>${esc(x)}</option>`).join("");vehicle.value=vs.includes(cur)?cur:"";vFilter.value=vs.includes(vcur)?vcur:""}
+
+function table(data,actions=false){if(!data.length)return'<div class="empty">No data found.</div>';let h='<div class="table-wrap"><table><thead><tr><th>Invoice No</th><th>Date</th><th>Type</th><th>Fuel Type</th><th>Coupon</th><th>Vehicle</th><th class="num">Fuel Amount</th><th class="num">Qty L</th><th class="num">Payment</th><th class="num">Balance</th><th>Remarks</th></tr></thead><tbody>';data.forEach(t=>h+=`<tr><td><b>${esc(t.invoiceNo)}</b></td><td>${df(t.date)}</td><td><span class="badge ${t.type}">${t.type==="fuel"?"FUEL":"PAYMENT"}</span></td><td>${t.type==="fuel"?esc(t.fuelType||"Petrol"):"-"}</td><td>${esc(t.coupon)}</td><td>${esc(t.vehicle)}</td><td class="num">${t.type==="fuel"?money(t.fuelAmount):""}</td><td class="num">${t.type==="fuel"?money(t.fuelQty):""}</td><td class="num">${t.type==="payment"?money(t.paymentAmount):""}</td><td class="num"><b>${money(t.balance)}</b></td><td>${esc(t.remarks)}</td></tr>`);return h+"</tbody></table></div>"}
+function renderRecent(){recent.innerHTML=table(rows().slice(-8).reverse())}
+
+function stationFiltered(){
+let q=sSearch.value.toLowerCase(),f=sFrom.value,to=sTo.value,ty=sType.value;
+return rows().filter(x=>(!q||[x.invoiceNo,x.vehicle,x.coupon,x.remarks,x.date,x.fuelType].join(" ").toLowerCase().includes(q))&&(!f||x.date>=f)&&(!to||x.date<=to)&&(!ty||x.type===ty))
+}
+
+function renderStation(){
+let allData=stationFiltered();
+let f=sFrom.value, to=sTo.value;
+
+// Calculate opening balance before date range if 'from' is provided, or overall opening
+let openingBal = db.settings.opening;
+let periodFuelAmt = 0, periodPayAmt = 0;
+if(f || to){
+  let priorRows = rows().filter(x => (!f || x.date < f));
+  openingBal = priorRows.length ? priorRows.at(-1).balance : (+db.settings.opening||0);
+  let rangeRows = allData;
+  periodFuelAmt = rangeRows.filter(x=>x.type==="fuel").reduce((a,b)=>a+(+b.fuelAmount||0),0);
+  periodPayAmt = rangeRows.filter(x=>x.type==="payment").reduce((a,b)=>a+(+b.paymentAmount||0),0);
+} else {
+  let rangeRows = allData;
+  periodFuelAmt = rangeRows.filter(x=>x.type==="fuel").reduce((a,b)=>a+(+b.fuelAmount||0),0);
+  periodPayAmt = rangeRows.filter(x=>x.type==="payment").reduce((a,b)=>a+(+b.paymentAmount||0),0);
+}
+let closingBal = allData.length ? allData.at(-1).balance : openingBal;
+
+let summaryText = `Report Period: ${f?df(f):"Start"} to ${to?df(to):"Latest"} | Opening Balance: Rs. ${money(openingBal)} | Total Fuel: Rs. ${money(periodFuelAmt)} | Total Payments: Rs. ${money(periodPayAmt)} | Closing Balance: Rs. ${money(closingBal)}`;
+stationSummaryBox.textContent = summaryText;
+
+let perPage = parseInt(sPerPage.value)||25;
+let totalPages = Math.ceil(allData.length/perPage)||1;
+if(currentStationPage>totalPages) currentStationPage=totalPages;
+if(currentStationPage<1) currentStationPage=1;
+let start=(currentStationPage-1)*perPage;
+let pageData=allData.slice(start,start+perPage);
+
+stationTable.innerHTML=table(pageData);
+stationPagination.innerHTML=`<div>Showing ${allData.length?start+1:0} to ${Math.min(start+perPage,allData.length)} of ${allData.length} entries</div><div><button onclick="changePage(-1)" ${currentStationPage===1?'disabled':''}>Previous</button> Page ${currentStationPage} of ${totalPages} <button onclick="changePage(1)" ${currentStationPage===totalPages?'disabled':''}>Next</button></div>`;
+}
+
+function changePage(dir){currentStationPage+=dir;renderStation()}
+[sSearch,sFrom,sTo,sType,sPerPage].forEach(x=>x.oninput=()=>{currentStationPage=1;renderStation()});
+
+function renderVehicles(){let f=vFrom.value,to=vTo.value,sel=vFilter.value,q=vSearch.value.toLowerCase(),map={};db.transactions.filter(t=>t.type==="fuel"&&t.vehicle&&(!f||t.date>=f)&&(!to||t.date<=to)).forEach(t=>{if(!map[t.vehicle])map[t.vehicle]={vehicle:t.vehicle,n:0,l:0,a:0};map[t.vehicle].n++;map[t.vehicle].l+=+t.fuelQty||0;map[t.vehicle].a+=+t.fuelAmount||0});let a=Object.values(map).filter(x=>(!sel||x.vehicle===sel)&&(!q||x.vehicle.toLowerCase().includes(q)));vehicleSummary.innerHTML=a.length?'<div class="table-wrap"><table><thead><tr><th>Vehicle</th><th class="num">Entries</th><th class="num">Fuel Qty L</th><th class="num">Fuel Amount</th></tr></thead><tbody>'+a.map(x=>`<tr><td><b>${esc(x.vehicle)}</b></td><td class="num">${x.n}</td><td class="num">${money(x.l)}</td><td class="num">${money(x.a)}</td></tr>`).join("")+'</tbody></table></div>':'<div class="empty">No vehicle data.</div>';let d=sel?rows().filter(x=>x.type==="fuel"&&x.vehicle===sel&&(!f||t.date>=f)&&(!to||t.date<=to)):[];vehicleDetail.innerHTML=sel?table(d):'<div class="empty">Vehicle select krein.</div>'}
+function renderVehicleList(){vehicleList.innerHTML=db.vehicles.length?'<div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>Driver</th><th>Type</th><th>Remarks</th><th>Actions</th></tr></thead><tbody>'+db.vehicles.map(v=>`<tr><td><b>${esc(v.vehicle)}</b></td><td>${esc(v.driver)}</td><td>${esc(v.type)}</td><td>${esc(v.remarks)}</td><td><button class="btn-secondary" onclick="editV('${v.id}')">Edit</button> <button class="btn-danger" onclick="delV('${v.id}')">Delete</button></td></tr>`).join("")+'</tbody></table></div>':'<div class="empty">No vehicles.</div>'}
+
+function reset(){invoice.value=nextInv();date.value=new Date().toISOString().slice(0,10);type.value="fuel";fuelType.value="Petrol";coupon.value="";vehicle.value="";fuelAmount.value="";fuelQty.value="";paymentAmount.value="";remarks.value="";editId="";formTitle.textContent="Add Transaction";save.textContent="Save Transaction";toggle()}
+let editId="";
+function toggle(){
+if(type.value==="fuel"){
+  document.querySelectorAll(".fuelF").forEach(x=>x.style.display="block");
+  document.querySelector(".payF").style.display="none";
+}else{
+  document.querySelectorAll(".fuelF").forEach(x=>x.style.display="none");
+  document.querySelector(".payF").style.display="block";
+}
+}
+type.onchange=toggle;
+
+save.onclick=()=>{
+if(!date.value)return alert("Date required");
+if(type.value==="fuel"&&(!vehicle.value||+fuelAmount.value<=0))return alert("Vehicle and Fuel Amount required");
+if(type.value==="payment"&&+paymentAmount.value<=0)return alert("Payment Amount required");
+let t={
+  id:editId||uid(),
+  invoiceNo:invoice.value||nextInv(),
+  date:date.value,
+  type:type.value,
+  fuelType:type.value==="fuel"?fuelType.value:"-",
+  coupon:type.value==="fuel"?coupon.value:"",
+  vehicle:type.value==="fuel"?vehicle.value:"",
+  fuelAmount:type.value==="fuel"?+fuelAmount.value:0,
+  fuelQty:type.value==="fuel"?+fuelQty.value:0,
+  paymentAmount:type.value==="payment"?+paymentAmount.value:0,
+  remarks:remarks.value
+};
+let i=db.transactions.findIndex(x=>x.id===t.id);
+if(i>=0)db.transactions[i]=t;else db.transactions.push(t);
+saveDB();render();reset();alert("Transaction saved: "+t.invoiceNo)
+}
+clear.onclick=reset;
+
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.getElementById(b.dataset.p).classList.add("active")});
+[sSearch,sFrom,sTo,sType].forEach(x=>x.oninput=renderStation);
+[vFilter,vSearch,vFrom,vTo].forEach(x=>x.oninput=renderVehicles);
+
+mvSave.onclick=()=>{let n=mvNo.value.trim();if(!n)return alert("Vehicle No required");if(db.vehicles.some(v=>v.vehicle.toLowerCase()===n.toLowerCase()&&v.id!==mvId.value))return alert("Vehicle already exists");let v={id:mvId.value||uid(),vehicle:n,driver:mvDriver.value,type:mvType.value,remarks:mvRemarks.value},i=db.vehicles.findIndex(x=>x.id===v.id);if(i>=0)db.vehicles[i]=v;else db.vehicles.push(v);saveDB();renderVehicleList();fillVehicles();mvClear.click()}
+mvClear.onclick=()=>{mvId.value="";mvNo.value="";mvDriver.value="";mvType.value="Vehicle";mvRemarks.value="";mvSave.textContent="Add Vehicle"}
+function editV(id){let v=db.vehicles.find(x=>x.id===id);mvId.value=v.id;mvNo.value=v.vehicle;mvDriver.value=v.driver;mvType.value=v.type;mvRemarks.value=v.remarks;mvSave.textContent="Update Vehicle";document.querySelector('[data-p="manage"]').click()}
+function delV(id){let v=db.vehicles.find(x=>x.id===id);if(confirm("Delete vehicle "+v.vehicle+"?")){db.vehicles=db.vehicles.filter(x=>x.id!==id);saveDB();render()}}
+
+saveSettings.onclick=()=>{db.settings.opening=+opening.value||0;db.settings.station=stationName.value||"Ghakhar Filling Station";saveDB();render();alert("Settings saved")}
+
+function reportRows(data){return data.map(x=>[x.invoiceNo,df(x.date),x.type==="fuel"?"Fuel":"Payment",x.fuelType||"-",x.coupon,x.vehicle,x.type==="fuel"?money(x.fuelAmount):"",x.type==="fuel"?money(x.fuelQty):"",x.type==="payment"?money(x.paymentAmount):"",money(x.balance),x.remarks])}
+
+function printReport(title,heads,data){
+let w=open("","_blank");if(!w)return alert("Popup blocked");
+let f=sFrom.value, to=sTo.value;
+let openingBal = db.settings.opening;
+if(f || to){
+  let priorRows = rows().filter(x => (!f || x.date < f));
+  openingBal = priorRows.length ? priorRows.at(-1).balance : (+db.settings.opening||0);
+}
+let closingBal = data.length ? data.at(-1).balance : openingBal;
+
+w.document.write(`<html><head><title>${title}</title><style>body{font-family:Arial;padding:20px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #aaa;padding:6px}th{background:#eee}</style></head><body><h2>${title}</h2><p><b>Period:</b> ${f?df(f):"Start"} to ${to?df(to):"Latest"} | <b>Opening Balance:</b> Rs. ${money(openingBal)} | <b>Closing Balance:</b> Rs. ${money(closingBal)}</p><p>Printed: ${new Date().toLocaleString()}</p><table><tr>${heads.map(x=>"<th>"+x+"</th>").join("")}</tr>${data.map(r=>"<tr>"+r.map(x=>"<td>"+esc(x)+"</td>").join("")+"</tr>").join("")}</table><script>onload=()=>print()<\/script></body></html>`);w.document.close()
+}
+
+function xlsx(name,sheet,heads,data){if(!window.XLSX)return alert("Excel library load nahi hui.");let ws=XLSX.utils.aoa_to_sheet([heads,...data]),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,name)}
+const heads=["Invoice No","Date","Type","Fuel Type","Coupon No","Vehicle No","Fuel Amount","Fuel Qty Ltr","Payment Amount","Balance","Remarks"];
+
+printStation.onclick=()=>printReport("Ghakhar Filling Station - Station Ledger",heads,reportRows(stationFiltered()));
+excelStation.onclick=()=>xlsx("ghakhar-station-ledger.xlsx","Station Ledger",heads,reportRows(stationFiltered()));
+
+function vr(){let s=vFilter.value,f=vFrom.value,to=vTo.value;return rows().filter(x=>x.type==="fuel"&&x.vehicle===s&&(!f||x.date>=f)&&(!to||x.date<=to))}
+printVehicle.onclick=()=>{if(!vFilter.value)return alert("Vehicle select krein");printReport("Vehicle Report - "+vFilter.value,heads,reportRows(vr()))}
+excelVehicle.onclick=()=>{if(!vFilter.value)return alert("Vehicle select krein");xlsx("vehicle-report.xlsx","Vehicle Report",heads,reportRows(vr()))}
+
+backup.onclick=()=>{let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:"application/json"}));a.download="ghakhar-ledger-backup.json";a.click()}
+restoreBtn.onclick=()=>restore.click();
+restore.onchange=e=>{let r=new FileReader;r.onload=()=>{try{let x=JSON.parse(r.result);if(x.transactions&&x.settings&&confirm("Restore backup? Current data will be replaced.")){db=x;saveDB();render();reset();alert("Restored")}}catch{alert("Invalid backup")}};r.readAsText(e.target.files[0])}
+
+csv.onclick=()=>{let d=reportRows(rows()),c=[heads,...d].map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(",")).join("\n"),a=document.createElement("a");a.href=URL.createObjectURL(new Blob([c],{type:"text/csv"}));a.download="ghakhar-ledger.csv";a.click()}
+
+// Download Template
+downloadTemplate.onclick=()=>{
+let templateData=[
+  ["Invoice No","Date","Type","Fuel Type","Coupon No","Vehicle No","Fuel Amount","Fuel Qty Ltr","Payment Amount","Remarks"],
+  ["INV-00001","2026-09-01","fuel","Petrol","101","CAQ-6588",15000,40,0,"Sample Fuel Purchase"],
+  ["INV-00002","2026-09-02","payment","","-","",0,0,50000,"Bank Transfer Payment"]
+];
+xlsx("ghakhar-template.xlsx","Template",templateData[0],templateData.slice(1));
+}
+
+excelBtn.onclick=()=>excel.click();
+excel.onchange=e=>{
+let file=e.target.files[0],r=new FileReader;
+r.onload=()=>{
+try{
+let wb=XLSX.read(r.result,{type:"array",cellDates:true}),raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
+if(!raw.length)return alert("Excel empty");
+let get=(o,n)=>{let k=Object.keys(o).find(k=>n.some(x=>k.trim().toLowerCase()===x.toLowerCase()));return k===undefined?"":o[k]};
+let data=raw.map((o)=>{
+let d=get(o,["Date","date"]);
+if(d instanceof Date)d=d.toISOString().slice(0,10);
+else if(typeof d==="number"){let z=XLSX.SSF.parse_date_code(d);d=`${z.y}-${String(z.m).padStart(2,"0")}-${String(z.d).padStart(2,"0")}`;}
+else{let m=String(d).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m)d=`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;}
+let ty=String(get(o,["Type","type"])||"").toLowerCase();
+let fa=+get(o,["Fuel Amount","fuel amount"])||0,q=+get(o,["Fuel Qty Ltr","Fuel Qty","fuel qty ltr"])||0,p=+get(o,["Payment Amount","payment amount"])||0;
+let fType=String(get(o,["Fuel Type","fuel type"])||"Petrol");
+if(!ty) ty = p>0 && fa<=0 ? "payment" : "fuel";
+return{
+  id:uid(),
+  invoiceNo:String(get(o,["Invoice No","Invoice","invoice no"])||""),
+  date:d,
+  type:ty,
+  fuelType:fType,
+  coupon:String(get(o,["Coupon No","Coupon"])||""),
+  vehicle:String(get(o,["Vehicle No","Vehicle"])||""),
+  fuelAmount:fa,
+  fuelQty:q,
+  paymentAmount:p,
+  remarks:String(get(o,["Remarks","Remark"])||"")
+}
+}).filter(x=>x.date&&(x.vehicle||x.fuelAmount||x.paymentAmount));
+
+if(!data.length)return alert("Usable rows nahi milin");
+let append=confirm(data.length+" rows found. OK = Append, Cancel = Replace.");
+db.transactions=append?[...db.transactions,...data]:data;
+data.forEach(t=>{if(t.vehicle&&!db.vehicles.some(v=>v.vehicle.toLowerCase()===t.vehicle.toLowerCase()))db.vehicles.push({id:uid(),vehicle:t.vehicle,driver:"",type:"Vehicle",remarks:"Imported"})});
+saveDB();render();alert("Excel import complete successfully!");
+}catch(err){alert("Excel read error: "+err.message)}
+};
+r.readAsArrayBuffer(file);
+}
+
+findBtn.onclick=()=>{let t=db.transactions.find(x=>x.invoiceNo.toLowerCase()===findInvoice.value.trim().toLowerCase());if(!t)return findResult.innerHTML="<b style='color:#b42318'>Invoice not found.</b>";findResult.innerHTML=`<b>${esc(t.invoiceNo)}</b> — ${df(t.date)} — ${t.type} — ${esc(t.vehicle||"Station Payment")} — ${money(t.type==="fuel"?t.fuelAmount:t.paymentAmount)}<div class="actions"><button class="btn-primary" onclick="editInvoice('${t.invoiceNo}')">Edit</button><button class="btn-danger" onclick="deleteInvoice('${t.invoiceNo}')">Delete</button></div>`}
+function editInvoice(inv){let t=db.transactions.find(x=>x.invoiceNo===inv);if(!t)return;editId=t.id;invoice.value=t.invoiceNo;date.value=t.date;type.value=t.type;fuelType.value=t.fuelType||"Petrol";coupon.value=t.coupon;vehicle.value=t.vehicle;fuelAmount.value=t.fuelAmount;fuelQty.value=t.fuelQty;paymentAmount.value=t.paymentAmount;remarks.value=t.remarks;toggle();formTitle.textContent="Update Transaction";save.textContent="Update Transaction";document.querySelector('[data-p="entries"]').click()}
+function deleteInvoice(inv){if(!confirm("Delete "+inv+"?"))return;db.transactions=db.transactions.filter(x=>x.invoiceNo!==inv);saveDB();render();findResult.innerHTML="<b style='color:#087443'>Deleted successfully.</b>"}
+
+render();reset();
+</script>
+</body></html>
